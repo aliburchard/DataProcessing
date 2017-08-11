@@ -8,7 +8,7 @@ library(tidyr)
 library(lubridate)
 
 #This project has subquestions that vary by species, including a howmany and select-all behaviors
-jdata_unfiltered <- read.csv(file = "projects/sample_data/wildcam_gorongosa_sample.csv", stringsAsFactors = F)
+jdata_unfiltered <- read.csv(file = "data/wildcam_gorongosa_test_raw.csv", stringsAsFactors = F)
 
 # So, need to limit to final workflow version and ideally split by task. 
 jdata_unfiltered %>% mutate(., created_at = ymd_hms(created_at)) %>% 
@@ -104,5 +104,5 @@ flat_data <- tot %>% select(., -task_index, -task_label, -value)
 flat_data %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #flattened,
 jdata %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #original
 
-write.csv(flat_data, file = "projects/sample_data/wildcam-flattened.csv")
+write.csv(flat_data, file = "sampledata/wildcam-flattened.csv")
 
