@@ -8,7 +8,7 @@ library(tidyr)
 source("functions/quick_functions.R") #adds a check workflow and view json function
 
 # this works for the old version of serengeti wildebeest count. Note you'll want to set working directory as appropriate.
-wilde <- read.csv("scripts/points-wildebeest/wildebeest_2016_sample.csv", stringsAsFactors = F)
+wilde <- read.csv("projects/point-marking-wildebeest/wildebeest_2016_sample.csv", stringsAsFactors = F)
 
 check_workflow(wilde)
 
@@ -73,4 +73,4 @@ data_out <- tot %>%
      mutate(., task_label = str_trunc(task_label, width = 25)) %>%
      select(., -task_index, -key)
 
-write.csv(x = data_out, file = "flattened-wildebeest_2016_sample.csv")
+write.csv(x = data_out, file = "projects/point-marking-wildebeest/flattened-wildebeest_2016_sample.csv")
