@@ -7,7 +7,7 @@ library(stringr)
 library(tidyr)
 
 source("functions/quick_functions.R")
-chicago <- read.csv("projects/survey-tasks/chicago_sample_version397.csv", stringsAsFactors = F)
+chicago <- read.csv("projects/sample_data/chicago_sample_version397.csv", stringsAsFactors = F)
 
 
 # So, need to limit to final workflow version and ideally split by task. 
@@ -63,5 +63,5 @@ tot <- left_join(add_choices, chicago_answers)
 flat_data <- tot %>% select(., -task_index, -task_label, -value, -answers)
 
 View(flat_data)
-write.csv(flat_data, file = "projects/survey-tasks/flattened-chicago-397.csv")
+write.csv(flat_data, file = "projects/sample_data/flattened-chicago-397.csv")
 

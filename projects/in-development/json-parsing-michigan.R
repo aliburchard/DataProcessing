@@ -1,3 +1,4 @@
+rm(list = ls())
 library(tidyjson)
 library(magrittr)
 library(jsonlite)

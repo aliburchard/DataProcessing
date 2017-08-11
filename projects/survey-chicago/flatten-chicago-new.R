@@ -7,7 +7,7 @@ library(stringr)
 library(tidyr)
 
 source("functions/quick_functions.R")
-chicago <- read.csv("projects/survey-chicago/chicago_sample_version5.csv", stringsAsFactors = F)
+chicago <- read.csv("projects/sample_data/chicago_sample_version5.csv", stringsAsFactors = F)
 
 # So, need to limit to final workflow version and ideally split by task. 
 # T0 is clearly the only task we really care about in this dataset (though note the changed format of current site). 
@@ -71,5 +71,5 @@ final <- T1_data %>% mutate(wow = value) %>%
      select(subject_ids, classification_id, workflow_version:off_leash, wow)
 
 View(final)
-write.csv(final, file = "projects/survey-chicago/flattened-chicago.csv")
+write.csv(final, file = "projects/sample_data/flattened-chicago.csv")
 
