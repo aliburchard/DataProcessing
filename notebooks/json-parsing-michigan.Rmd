@@ -1,0 +1,130 @@
+---
+title: "JSON parsing: survey tasks: with multiple-choice subquestions"
+output: html_notebook
+---
+
+This project has two tasks in their workflow, a survey task and a follow up question task asking about the weather. The survey task also has subquestions that ask the volunteer to select all that apply, meaning we have an extra step to flatten out the annotations
+
+```{r}
+library(tidyjson)
+library(magrittr)
+library(jsonlite)
+library(dplyr)
+library(stringr)
+library(tidyr)
+library(lubridate)
+```
+```{r}
+
+jdata_unfiltered <- read.csv(file = "../data/michigan-zoomin-classifications.csv", stringsAsFactors = F)
+
+# you'd probably need to include multiple versions (as these likely have minor text changes, but for this demo we'll choose 463.55)
+jdata_unfiltered %>% mutate(., created_at = ymd_hms(created_at)) %>% 
+     group_by(., workflow_id, workflow_version) %>% summarise(., max(created_at), n()) %>% head
+
+
+jdata <- jdata_unfiltered %>% filter(., workflow_version == 463.55) %>% head(., n = 5000)
+jdata %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n_distinct(workflow_version))
+
+```
+
+Take a peek at the data structure. There are two tasks, and within the survey task, only some species have subquestions.
+```{r}
+############### SURVEY TASK
+head(jdata)
+for (i in 15:17) {
+     jdata$annotations[i] %>% prettify %>% print
+}
+```
+
+```{r}
+# preliminary flat
+
+basic_flat_with_values <- jdata %>% 
+     select(., subject_ids, classification_id, workflow_version, annotations) %>%
+     as.tbl_json(json.column = "annotations") %>%
+     gather_array(column.name = "task_index") %>% # really important for joining later
+     spread_values(task = jstring("task"), task_label = jstring("task_label"), value = jstring("value")) 
+
+basic_flat_with_values %>% data.frame %>% head
+
+basic_summary %>% data.frame %>% group_by(., workflow_version, key, task) %>% summarise(., n())
+```
+
+```{r}
+
+#--------------------------------------------------------------------------------#
+# split into survey vs. non-survey data frames. Question is flattened and can be exported as a separate file now.
+survey <- basic_flat_with_values %>% filter(., task == "T3")
+question <- basic_flat_with_values %>% filter(., task == "T2") 
+
+###----------------------------### SURVEY FLATTENING ###----------------------------### 
+
+# grab choices; Species_index lists how many species were recorded in a given classification. (Usually maxes at 2...
+with_choices <- survey %>%
+     enter_object("value") %>% json_lengths(column.name = "total_species") %>% 
+     gather_array(column.name = "species_index") %>% #each classification is an array. so you need to gather up multiple arrays.
+     spread_values(choice = jstring("choice")) 
+
+# if there are multiple species ID'd, there will be multiple rows and array.index will be >1
+with_choices %>% data.frame %>% head
+with_choices %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id))
+```
+
+Let's start the process of grabbing and flattening the nested data. Note that this section requires you to reference the specific suquestion labels, so if they change throughout the life of your project, you MUST create a script to handle the revisions.
+```{r}
+# grab answers. Note that the spread_values() function needs to be customized per team and subquestion label.
+
+with_answers <- with_choices %>% 
+     enter_object("answers") %>% 
+     spread_values(how_many = jstring("HOWMANYANIMALSDOYOUSEE")) %>%
+     enter_object("WHATISTHEANIMALSDOING") %>% #enter into the list of behaviors
+     gather_array("behavior_index") %>% #gather into one behavior per row
+     append_values_string("behavior") 
+
+# note that behaviors are listed in a "long" format, but this is probably unwieldy.
+with_answers %>% data.frame %>% head
+```
+
+Let's spread out the answers into individual columns with 1/0 indicators for whether or not that behavior was identified.
+```{r}
+# spread answers (into separate columns): have to drop behavior index or else the rows won't combine!
+with_answers_spread <- with_answers %>% data.frame %>% 
+     select(., -behavior_index) %>%
+     mutate(., behavior_present = 1) %>%
+     spread(., key = behavior, value = behavior_present, fill = 0)
+
+with_answers_spread %>% data.frame %>% head
+with_answers_spread %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id))
+
+```
+
+You could, also, in theory, create a column that contains an actual list of the behaviors. Note that the values look similar to how tidyjson would display them, but they are actual lists instead of character strings that say "list(...)"
+```{r}
+# spread answers (into a list)
+test <- with_answers %>% data.frame %>% 
+     select(., -behavior_index) %>% nest(behavior)
+
+
+with_answers %>% data.frame %>% head
+```
+
+```{r}
+# in theory, you want to tie all of these back together just in case there are missing values
+add_choices <- left_join(survey, with_choices)
+tot <- left_join(add_choices, with_answers_spread)
+flat_data <- tot %>% select(., -task_index, -task_label, -value)
+
+flat_data %>% data.frame %>% head
+```
+
+```{r}
+#check that the number of distinct subject IDs and classification IDs is still the same
+flat_data %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #flattened,
+jdata %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #original
+
+#save your files for aggregation!
+write.csv(flat_data, file = "../data/T3-flattened.csv")
+write.csv(question, file = "../data/T2-flattened.csv")
+
+```

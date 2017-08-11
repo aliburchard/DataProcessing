@@ -1,0 +1,114 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyjson)
+library(magrittr)
+library(jsonlite)
+library(dplyr)
+```
+
+
+# JSON Parsing
+
+Each classification is an array. Depending on the workflow and how it's changed, classification arrays may vary in structure within a single project. Also, empty arrays seem to be problematic. Depending on the type of project, you probably want to split the data into workflows and even limit workflow version prior to flattening. 
+
+---
+
+#### Load example data
+```{r load example data}
+sas <- read.csv("../data/questions-SAS-1000.csv", stringsAsFactors = F)
+kitteh <- read.csv("../data/kitteh-zoo-classifications.csv", stringsAsFactors = F)
+wilde <- read.csv("../data/points-wildebeest.csv", stringsAsFactors = F)
+chicago <- read.csv("../data/chicago-wildlife-watch-classifications.csv", stringsAsFactors = F)
+
+```
+
+#### Simple Yes or No Questions
+
+```{r display example annotation formats}
+sas$annotations[1] %>% prettify
+```
+
+#### Simple Point Marking
+```{r}
+wilde$annotations[2] %>% prettify()
+```
+#### Combination Question and Marking: Note that the fomat of the value array varies by task
+```{r}
+kitteh$annotations[1] %>% prettify
+
+```
+
+# Flattening the Files
+
+It's much easier to parse/flatten the JSON when everything is in a standard format, so you probably want to split out your raw file based on the Workflow and even Task IDs. You also want to limit to only the workflow version(s) with actual data. This is because previous versions, especially those with empty data, may have different structures for the classification data, which is annoying and problematic.
+
+Note: you may need to dig into your raw data a bit to identify which workflow and version you need. Some projects have many workflows and versions, others not so many.
+
+```{r workflow_fun_definition}
+fun_check_workflow <- function(data){
+ data %>% group_by(workflow_id, workflow_version) %>% 
+          summarise(date = max(created_at), count = n()) %>% 
+          print    
+}
+```
+For example: This is the Snapshots at Sea classifications by workflow
+
+```{r}
+sas %>% fun_check_workflow()
+```
+
+vs. that of Wildebeest Marking Project
+```{r}
+wilde %>% fun_check_workflow()
+```
+Vs. Chicago Wildlife Watch
+```{r}
+chicago %>% fun_check_workflow()
+```
+
+## Basic Flattening
+
+With jsonlite, you can basically flatten all of the json data into a series of nested lists. This works really well for simple data, like questions, but marking tasks and more complex workflows get a bit complicated.
+
+```{r flattening }
+library(jsonlite)
+
+#Basic Flattening Function
+basic_flattening <- function(jdata) {
+     out <- list() #create list to hold everything
+     
+     for (i in 1:dim(jdata)[1]) { #loop through each row of the dataset at a time
+          classification_id  <- jdata$classification_id[i] 
+          subject_id <- jdata$subject_ids[i] 
+          split_anno <- fromJSON(txt = jdata$annotations[i], simplifyDataFrame = T) 
+          out[[i]] <- cbind(classification_id, subject_id, split_anno)
+     }
+     
+     do.call(what = rbind, args = out)   
+}
+
+```
+
+Single questions flatten alright
+```{r flatten sas}
+flat_sas <- sas %>% basic_flattening() 
+str(flat_sas)
+```
+
+But more complex questions produce embedded lists inside the "value" column.
+
+
+```{r}
+flat_wilde <- wilde[1:10,] %>% basic_flattening() 
+str(flat_wilde, max.level = 2)
+```
+
+```{r}
+flat_kitteh <- kitteh %>% basic_flattening() 
+str(flat_kitteh, max.level = 3)
+```
+

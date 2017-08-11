@@ -1,0 +1,119 @@
+---
+title: "JSON parsing for simple marking projects: Serengeti Wildebeest Count"
+output: html_notebook
+---
+
+Basic walkthrough of JSON parsing for a simple marking task. Using tidyjson because it more elegantly navigates the neseted lists. Alternatively, you could use jsonlite and a whole bunch of lapply commands, but why would you when Hadley Wickham exists?
+
+
+```{r load data, define functions}
+library(tidyjson)
+library(magrittr)
+library(jsonlite)
+library(dplyr)
+library(stringr)
+library(tidyr)
+
+wilde <- read.csv("../data/points-wildebeest.csv", stringsAsFactors = F) 
+
+# check workflow
+fun_check_workflow <- function(data){
+     data %>% group_by(workflow_id, workflow_version) %>% 
+          summarise(date = max(created_at), count = n()) %>% 
+          print  
+}
+
+#Basic Flattening using jsonlite
+basic_flattening <- function(jdata) {
+     out <- list() #create list to hold everything
+     
+     for (i in 1:dim(jdata)[1]) {
+          classification_id  <- jdata$classification_id[i] #all the classification data has this format
+          subject_id <- jdata$subject_ids[i]
+          split_anno <- jsonlite::fromJSON(txt = jdata$annotations[i], simplifyDataFrame = T) 
+          out[[i]] <- cbind(classification_id, subject_id, split_anno)
+     }
+     
+     do.call(what = rbind, args = out)   
+}
+```
+
+Identify workflow and version to extract 
+```{r}
+fun_check_workflow(wilde)
+```
+Limit to that workflow and version
+```{r}
+dat <- wilde %>% filter(., workflow_id == 78, workflow_version == 36.60) 
+```
+
+Let's look at what a classification actually looks like in JSON
+```{r}
+dat$annotations[8] %>% prettify
+```
+  
+    
+Note that the basic jsonlite flattening function doesn't really work. The volumn "Value" is actually an embedded list (with embedded lists inside each record). You would need to get on with unlisting the output and l and s applying and so on.
+
+```{r}
+test1 <- dat %>% basic_flattening() %>% mutate(., task_label = str_trunc(task_label,width = 30))
+glimpse(test1)
+```
+
+So instead, we can us tidyjson to explore the data and extract the pieces we want. Now the Value field is split out into its component pieces. So, each marking gets 6 rows (x, y, tool, frame, details, and tool_label). The array index is the index of the mark itself, and the document index is the index of the classification. So if one person (one classification) marks 10 points, the array index will run 1:10. 
+
+
+```{r use tidyjson to view}
+
+dat$annotations %>% as.tbl_json %>% 
+     gather_array() %>%
+     spread_values(task = jstring("task"), tasklabel = (jstring("task_label"))) %>%
+     enter_object("value") %>%
+     gather_array() %>%
+     gather_keys() %>% 
+     append_values_string() %>% data.frame %>% head 
+```
+
+NOTE that the document index here starts at 2. That's because classifications where the user didn't make any clicks have empty Value fields. Those just get discarded when we "enter_object" in JSON, so we've got to track them separately and recombine.
+
+Let's do that by NOT entering the value object and instead just recording the json_length of the different components within a classification. If Value == 0, then the user didn't record any marks and we know those will get dropped when we try to extract the next level of data. 
+
+This snippet records all classifications and filters to keep just one row per classification. Note that we've done the json parsing while within the data frame by specifying which column is json. Good ol' dplyr magic.
+
+```{r}
+
+all_submissions <- dat %>% 
+     select(., subject_ids, classification_id, user_name, workflow_id, workflow_version, created_at, annotations) %>%
+     as.tbl_json(json.column = "annotations") %>%
+     gather_array(column.name = "task_index") %>%
+     spread_values(task = jstring("task"), task_label = (jstring("task_label"))) %>%
+     gather_keys() %>%
+     json_lengths(column.name = "total_marks") %>% 
+     filter(., key == "value") 
+
+all_submissions %>% data.frame %>% head
+```
+
+
+  
+Okay, so let's now grab and flatten the classification data.
+```{r}
+flattened <- dat %>% 
+     select(., subject_ids, classification_id, user_name, workflow_id, workflow_version, created_at, annotations) %>%
+     as.tbl_json(json.column = "annotations") %>%
+     gather_array(column.name = "task_index") %>%
+     spread_values(task = jstring("task"), task_label = (jstring("task_label"))) %>%
+     enter_object("value") %>% #this will filter the dataset to only records where length(value) > 0
+     gather_array(column.name = "mark_index") %>% #don't gather keys, whole point is that you are spreading out the damn keys.
+     spread_values(tool_label = jstring("tool_label"), xcoord = jnumber("x"), ycoord = jnumber("y"), tool = jstring("tool"))
+
+flattened %>% data.frame %>% head
+```
+
+Let's join the flattened classification data back to the "full dataset" that includes the zero-classification records
+
+```{r}
+tot <- left_join(all_submissions, flattened) 
+
+tot %>% data.frame %>% head(., n = 25)
+```
