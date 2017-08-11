@@ -3,7 +3,7 @@ library(dplyr)
 library(magrittr)
 library(tidyjson)
 
-source("~/Documents/ProgramR/DataProcessing/scripts/aggregate_functions.r")
+source("projects/questions_snaps-at-sea/functions-snaps-at-sea.R")
 
 survey <- read.csv("data/survey-classifications.csv", stringsAsFactors = F) 
 
