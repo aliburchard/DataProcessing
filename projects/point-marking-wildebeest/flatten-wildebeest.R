@@ -7,13 +7,13 @@ library(tidyr)
 
 source("functions/quick_functions.R") #adds a check workflow and view json function
 
-# this works for the old version of serengeti wildebeest count. Note you'll want to set working directory as appropriate.
+# Note you'll want to set working directory as appropriate.
 wilde <- read.csv("projects/point-marking-wildebeest/wildebeest_2016_sample.csv", stringsAsFactors = F)
 
 check_workflow(wilde)
 
 # Filter to the relevant workflow version. You might want to combine multiple versions; it depends on the changes that have been made to the project.
-dat <- wilde %>% filter(., workflow_id == 78, workflow_version == 36.60) 
+dat <- wilde %>% filter(., workflow_id == 78, workflow_version == 36.60) # note this is an older version of the workflow given the sample data.
 
 View_json(dat)
 dat$annotations[1] %>% prettify
@@ -26,6 +26,7 @@ dat$annotations %>% as.tbl_json %>%
      enter_object("value") %>%
      gather_array() %>%
      gather_keys() %>% 
+     json_lengths() %>%
      append_values_string() %>% head %>% View
 
 # Grab the top-level info for ALL classifications
