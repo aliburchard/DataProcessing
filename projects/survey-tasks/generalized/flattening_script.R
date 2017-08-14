@@ -14,21 +14,22 @@ source(file = "projects/survey-tasks/flattening_functions.R")
 
 # Specify Project
 project_name <- "michigan"
-classifications_file <- "wisconsin-classifications-subset.csv"
-
+classifications_file <- "projects/sample_data/michigan-sample.csv"
 # Examine data
-jdata <- read.csv(paste0("data/", classifications_file), stringsAsFactors = F)
+jdata <- read.csv(paste0(classifications_file), stringsAsFactors = F)
 
 # Set project-specific details
 check_workflow(jdata)
-workflow_id_num <- 1717
-workflow_version_num <- 319.90
+workflow_id_num <- 2276
+workflow_version_num <- 463.55
 
 # Identify task-specific details
 View_json(jdata)
-survey_id <- c("T1")
-single_choice_Qs <-  c("HWMN", "NGPRSNT")
-single_choice_colnames  <-  c("how_many", "young")
+survey_id <- c("T3")
+single_choice_Qs <-  c("HOWMANYANIMALSDOYOUSEE")
+single_choice_colnames  <-  c("how_many")
+multi_choice_Qs <- c("WHATISTHEANIMALSDOING")
+multi_choice_colnames <- c("behavior")
 
 # limit to relevant workflow id and version
 #jdata <- read.csv(classifications_file, stringsAsFactors = F)
@@ -47,4 +48,4 @@ final_data <- combine_answers() #sequentailly left-joins all the dataframes if t
 
 
 View(final_data)
-write.csv(full_data, file = paste0("data/", project_name, "-flattened.csv"))
+write.csv(final_data, file = paste0(project_name, "-flattened.csv"))
