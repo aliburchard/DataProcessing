@@ -111,7 +111,7 @@ species_votes <- grouped_classifications %>%
 
 # Aggregate counts (how many)
 howmany_votes <- grouped_classifications  %>%
-     summarise_at(., .cols = howmany_column, funs(mean_count = mean, med_count = median, min_count = min, max_count = max))
+     summarise_at(., .cols = howmany_column, funs(med_count = median, min_count = min, max_count = max))
 
 # Tally votes for the different behaviors for each species. # Generalize for multi-answer questions??
 behaviors_votes <- grouped_classifications %>% 
@@ -129,16 +129,9 @@ grouped_classifications %>%
 # Okay, so the full dataset has all of the aggregate votes per species. The only thing left is to select the top n species for each subject.
 all_data <- species_votes %>% full_join(howmany_votes) %>% full_join(., question_votes) %>% full_join(., behaviors_votes)
 
-# probably calculate the pielous score as well in here.
-
-
-# Now just select the consensus speces, but note ties.
-
-# Split the dataset up by total number of species recorded, and work through that.
 
 ########### CHOOSE ONLY CONSENSUS SPECIES AND CLEAN UP DATA ##############
 #full_dataset <- read.csv(file = "data/jdata-flattened-testing-ties.csv")
-
 
 choose_top_species <- function(aggregated_data) {
      most_species <- max(aggregated_data$agg_num_species)
@@ -160,18 +153,6 @@ choose_top_species <- function(aggregated_data) {
      return(consensus_data)
 }
 
-
-clean_up_consensus_data <- function(consensus_dataset, 
-                                    subject_level_cols = c("subject_ids", "num_class", "num_votes", "agg_num_species"),
-                                    agg_cols = c("consensus_species", "votes", "propvote", "propclass", "resolve"),
-                                    how_many_cols = c("mean_count", "med_count", "min_count", "max_count"),
-                                    yesno_columns = c("young", "horns"),
-                                    behavior_cols = c()) {
-     cleaned_dataset <- consensus_dataset %>% select_(., .dots = c(subject_level_cols, agg_cols, how_many_cols, yesno_columns, behavior_cols))
-     return(cleaned_dataset)
-}
-
-consensus_data <- choose_top_species(all_data)
 final_dat <- clean_up_consensus_data(consensus_dataset = consensus_data, behavior_cols = behavior_columns)
 
 
