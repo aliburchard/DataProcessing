@@ -1,12 +1,14 @@
+rm(list = ls())
 library(dplyr)
 library(magrittr)
 
-mich <- read.csv("data/jdata-flattened.csv")# note that the total_species count reported here isn't accurate when users report the same species multiple times. 
+mich <- read.csv("projects/sample_data/michigan-flattened.csv")# note that the total_species count reported here isn't accurate when users report the same species multiple times. 
+
 head(mich)
 
 mich %>% summarise(n_distinct(subject_ids), n_distinct(classification_id)) 
 
-mich %<>% select(., -X, -workflow_version, -task, -total_species, -species_index) %>% #these get in the way, and the counts are wrong
+mich %<>% select(., -workflow_version, -task, -total_species, -species_index) %>% #these get in the way, and the counts are wrong
      group_by(subject_ids) %>% # count up the number of distinct classification IDs
      mutate(., num_class = n_distinct(classification_id)) %>% #because there will be >1 row per classification_id if >1 spp
      arrange(., subject_ids, classification_id) 
@@ -30,7 +32,7 @@ if(dim(bad_counts)[1] > 0) {
           select(., -check_num_spp) %>%
           # groups by everything that should be distinct - good classifications will have one row per spp
           group_by(., subject_ids, classification_id, num_class, num_species, choice) %>% 
-          summarise_all(., sum) # adds up counts for duplicates of spp
+          summarise_all(., first) # takes only the first observation. If projects want to improve this, they can. 
 } else {
      cleaned_classifications <- check_spp_counts
 }
@@ -70,8 +72,17 @@ howmany_column <- "how_many"
 behavior_columns <- c("EATING", "GROOMING", "INTERACTING", "RUNNING", "SITTING", "STANDING", "WALKING")
 
 
-calc_prop <- function(x) {
-     sum(x)/length(x)          
+calc_prop <- function(x, NA_action = "non_answer") {
+     #NA_action can be non_answer or zero, indicating how NAs should be treated. By default, they are treated as non_answers
+     # sum(x)/length(x)  
+     
+     if (NA_action == "non_answer") {
+          prop<- sum(x[!is.na(x)])/length(x[!is.na(x)]) # Remove NAs from both sum and length
+          prop <- ifelse(is.finite(prop), prop, NA)          
+     } else if (NA_action == "zero") {
+          prop<- sum(x, na.rm = T)/length(x) #NAs count towards total length, but not towards the sum of 1s.
+     }
+     
 }
 
 #this provides one row per species ID per classification. We actually don't really need all the grouping variables... could just pull them apart and save for later.
@@ -88,7 +99,7 @@ species_votes <- grouped_classifications %>%
 
 # Aggregate counts (how many)
 howmany_votes <- grouped_classifications  %>%
-     summarise_at(., .cols = howmany_column, funs(mean_count = mean, med_count = median, min_count = min, max_count = max))
+     summarise_at(., .cols = howmany_column, funs(med_count = median, min_count = min, max_count = max))
 
 # Tally votes for the different behaviors for each species. # Generalize for multi-answer questions??
 behaviors_votes <- grouped_classifications %>% 
@@ -101,17 +112,8 @@ question_votes <- grouped_classifications %>%
 # Okay, so the full dataset has all of the aggregate votes per species. The only thing left is to select the top n species for each subject.
 all_data <- full_join(species_votes, howmany_votes) %>% full_join(., behaviors_votes)
 
-# probably calculate the pielous score as well in here.
-
-
-# Now just select the consensus speces, but note ties.
-
-# Split the dataset up by total number of species recorded, and work through that.
 
 ########### CHOOSE ONLY CONSENSUS SPECIES AND CLEAN UP DATA ##############
-#full_dataset <- read.csv(file = "data/jdata-flattened-testing-ties.csv")
-
-
 choose_top_species <- function(aggregated_data) {
      most_species <- max(aggregated_data$agg_num_species)
      out <- list()
@@ -132,18 +134,6 @@ choose_top_species <- function(aggregated_data) {
      return(consensus_data)
 }
 
-
-clean_up_consensus_data <- function(consensus_dataset, 
-                                    subject_level_cols = c("subject_ids", "num_class", "num_votes", "agg_num_species"),
-                                    agg_cols = c("consensus_species", "votes", "propvote", "propclass", "resolve"),
-                                    how_many_cols = c("mean_count", "med_count", "min_count", "max_count"), 
-                                    behavior_cols = c()) {
-     cleaned_dataset <- consensus_dataset %>% select_(., .dots = c(subject_level_cols, agg_cols, how_many_cols, behavior_cols))
-     return(cleaned_dataset)
-}
-
 consensus_data <- choose_top_species(all_data)
-final_dat <- clean_up_consensus_data(consensus_dataset = consensus_data, behavior_cols = behavior_columns)
-final_dat <- clean_up_consensus_data(consensus_dataset = consensus_data, how_many_cols = c("med_count", "max_count"), behavior_cols = behavior_columns)
 
-write.csv(final_dat, file = "data/michigan_aggregation.csv")
+write.csv(consensus_data, file = "projects/sample_data/michigan-aggregated.csv")

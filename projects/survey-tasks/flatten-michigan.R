@@ -92,5 +92,5 @@ flat_data <- tot %>% select(., -task_index, -task_label, -value)
 flat_data %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #flattened,
 jdata %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #original
 
-write.csv(flat_data, file = "projects/sample_data/michigan-flattened.csv")
+write.csv(flat_data, file = "projects/sample_data/michigan-flattened.csv", row.names = F)
 
