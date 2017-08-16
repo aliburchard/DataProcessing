@@ -8,18 +8,20 @@ library(stringr)
 library(tidyr)
 library(lubridate)
 
-source(file = "projects/survey-tasks/flattening_functions.R") 
+source(file = "projects/survey-tasks/generalized/flattening_functions.R") 
 
 ############## INTERACTIVE - CLEANING OF CLASSIFICATION DATA AND SPECIFYING FIELDS ###################
 
 # Specify Project
 project_name <- "michigan"
-classifications_file <- "projects/sample_data/michigan-sample.csv"
+classifications_file <- "data/michigan-zoomin-classifications.csv"
+
+
 # Examine data
-jdata <- read.csv(paste0(classifications_file), stringsAsFactors = F)
+jdata <- read.csv(classifications_file, stringsAsFactors = F)
 
 # Set project-specific details
-check_workflow(jdata)
+check_workflow(jdata) %>% View
 workflow_id_num <- 2276
 workflow_version_num <- 463.55
 

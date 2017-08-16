@@ -48,3 +48,23 @@ calc_yes <- function(x, yes = c("YES", "Yes", "yes", "Y", "y", "S", "s", "YS", "
      }
      
 }
+
+choose_top_species <- function(aggregated_data) {
+     most_species <- max(aggregated_data$agg_num_species)
+     out <- list()
+     
+     for (i in 1:most_species) {
+          temp <- aggregated_data %>% ungroup(.) %>%
+               filter(., agg_num_species == i) %>% # filter to i number of species
+               group_by(., subject_ids) %>%
+               top_n(n = i, wt = votes) %>% #just select top i species based on vote
+               mutate(., consensus_species = choice) %>% #add this as the consensus species column
+               mutate(., resolve = ifelse(n() == i, "ok", "tie")) %>% #if more than i answers per subject ID, it's a tie. this works when i >1!!!!
+               top_n(n = i, wt = choice) #take the last value (or last alphabetically)
+          out[[i]] <- temp 
+     }
+     
+     consensus_data <- do.call(what = rbind, args = out) %>% 
+          arrange(., subject_ids)
+     return(consensus_data)
+}
