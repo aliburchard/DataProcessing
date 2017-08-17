@@ -58,7 +58,7 @@ multi_choice_colnames <- c("behavior")
 final_data <- run_json_parsing(data = jdata)
 
 View(final_data)
-write.csv(final_data, file = paste0(project_name, "-flattened.csv"))
+write.csv(final_data, file = paste0(classifications_file, "-flattened.csv"), row.names = F)
 
 
 ### The Data out will be in the following format: 

@@ -16,12 +16,15 @@ check_dups <- function(dat) {
           print("You've got duplicates, dammit")
           return(bad_counts)
      } else if(check == 0) {
-          print("no dupes!!")
+          print("You've got no duplicates! Well done!")
      }
 }
 
 
 
+
+
+          
 calc_prop <- function(x, NA_action = "non_answer") {
      #NA_action can be non_answer or zero, indicating how NAs should be treated. By default, they are treated as non_answers
      # sum(x)/length(x)  
@@ -35,7 +38,7 @@ calc_prop <- function(x, NA_action = "non_answer") {
      
 }
 
-# Calculating the proportion of "YES" for non-required YES/NO questions
+# Calculating the proportion of "YES" for non-required YES/NO questions. Need to also do this for general single-answer questions
 calc_yes <- function(x, yes = c("YES", "Yes", "yes", "Y", "y", "S", "s", "YS", "ys"), NA_action = "non_answer") { 
      # treats NAs as non answers instead of zeros.
      # yes votes are anything in c("YES", "Yes", "yes", "Y", "y", "S", "s", "YS", "ys"), for various reasons. 

@@ -17,18 +17,7 @@
 # single_choice_colnames  <-  c("how_many")
 # multi_choice_Qs <- c("WHATISTHEANIMALSDOING")
 # multi_choice_colnames <- c("behavior")
-# 
 
-# Michigan - experiment
-project_name <- "michigan-zoomin"
-classifications_file <- "data/michigan-zoomin-classifications.csv"
-survey_id <- c("T3")
-workflow_id_num <- 2276
-workflow_version_num <- 463.55
-
-# Optional Fields
-multi_choice_Qs <- c("HOWMANYANIMALSDOYOUSEE", "WHATISTHEANIMALSDOING")
-multi_choice_colnames <- c("how_many","behavior")
 
 
 # # Colorado Corridors
