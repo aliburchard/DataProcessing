@@ -37,8 +37,7 @@ View_json <- function(jdata) {
 
 
 # FLATTEN TO TASK
-# Highest order flattening to extract relevant tasks *within* a classification.
-
+# Highest order flattening to extract relevant tasks *within* a classification. 
 
 flatten_to_task <- function(json_data) {
      flat_to_task <- json_data %>% 
@@ -49,6 +48,8 @@ flatten_to_task <- function(json_data) {
      return(flat_to_task)
 }  
 
+# Sometimes projects have multiple tasks - either shortcut questions or follow-up questions (or even marking!). 
+# These all need to be flattened separately. This function filters to the relevant task you need.
 filter_to_task <- function(flat_to_task, task_id = NA) {
      if (!is.na(task_id)) {
           # For some unknown reason, updating dplyr breaks how filter handles json objects. Hence the super base R filtering.
@@ -59,22 +60,21 @@ filter_to_task <- function(flat_to_task, task_id = NA) {
      return(out)
 }
 
-filter_to_question <- function(flat_to_task, question_task_id = NA) {
-     if (!is.na(question_task_id)) {
-          # For some unknown reason, updating dplyr breaks how filter handles json objects. Hence the super base R filtering.
-          out <- flat_to_task[flat_to_task$task == question_task_id, ]     
-     } else {
-          out <- flat_to_task
-     }
-     return(out)
+
+# Flatten shortcut questions
+# Whereas normal questions are already flattened, shortcut questions are contained inside of an array. 
+flatten_shortcut <- function(shortcut_data) {
+     shortcut_data %>% 
+          enter_object("value") %>% # all of the annotation information is contained within this value column, which is named by the call in the previous code chunk.
+          gather_array(column.name = "shortcut_index") %>% # each classification is an array. so you need to gather up multiple arrays.
+          append_values_string() 
 }
 
 
-
 # GRAB CHOICES
+# species_key is defined at entry or else defaults to choice
+# produces one row per species/submission per classification. If a user selects "lion" twice, this counts as two submissions.
 get_choices <- function(survey_data) { 
-     # species_key is defined at entry or else defaults to choice
-     # produces one row per species/submission per classification. If a user selects "lion" twice, this counts as two submissions.
      with_choices <- survey_data %>%
           enter_object("value") %>% # all of the annotation information is contained within this value column, which is named by the call in the previous code chunk.
           json_lengths(column.name = "total_submissions") %>% # Note that if users submit multiple classifications for a single species, this will be off.
@@ -84,15 +84,18 @@ get_choices <- function(survey_data) {
 }     
 
 # GRAB SINGLE ANSWER QUESTIONS
-# Single Choice Questions (e.g. how many, are there young, horns, etc.) These can be Yes/No or have >2 choices. I guess that can be dealt with in aggregation.
+# Single Choice Questions (e.g. how many, are there young, horns, etc.) 
+# These can be Yes/No *or* have >2 choices. I guess that can be dealt with in aggregation.
 
 #Single Choice Qs
 
+# This function is a helper function in the get_single_choice_Qs part of the script. It basically allows you to spread apart multiple single choice columns.
 spread_single_choice_values <- function(x, names, values) {
      stopifnot(length(names)==length(values))
      do.call("spread_values", c(list(x), setNames(as.list(values), names)))
 }
 
+# This dives into the answers field (the json data) and into the fields that have single choice answers
 get_single_choice_Qs <- function(with_choices_data, cols_in, cols_out) {
      if (!exists("single_choice_Qs")) {
           print("You have not entered any Single Choice subquestions, such as 'how many?', 'are there any young?', or 'do you see anything really cool?'")
@@ -116,6 +119,7 @@ get_single_choice_Qs <- function(with_choices_data, cols_in, cols_out) {
 # GRAB MULTI ANSWER QUESTIONS
 # Multi Choice Questions (eg. behaviors, which sides are visible)
 # Annoyingly, you need to separately do this for every multiple choice question and then recombine into a single multi-choice dataset. 
+# The list trick that works for single choices doesn't work here.
 get_multi_choice_Qs <- function(with_choices_data, cols_in, cols_out) {
      
      if (!exists("multi_choice_Qs")) {
@@ -210,8 +214,8 @@ run_json_parsing <- function(data) {
      
      
      
-     #Produces one row per classification. Might be useful when wanting to recombine other, potentially breaking, task types.
-     flattened <- flatten_to_task(json_data = data) %>% filter_to_task(task_id = survey_id)
+     # Now run through all of functions to flatten everything
+     flattened <- flatten_to_task(json_data = data) %>% filter_to_task(task_id = survey_id) #Produces one row per classification. Useful when wanting to recombine other, potentially breaking, task types.
      choices_only <- get_choices(flattened) # grabs all of the choices. Can produce >1 row per classification.
      single_choice_answers <- get_single_choice_Qs(choices_only, cols_in = single_choice_Qs, cols_out = single_choice_colnames) #cols_out is optional
      multi_choice_answers <- get_multi_choice_Qs(choices_only, cols_in = multi_choice_Qs, cols_out = multi_choice_colnames) #cols_out is optional
@@ -225,3 +229,4 @@ run_json_parsing <- function(data) {
      
      
 }
+

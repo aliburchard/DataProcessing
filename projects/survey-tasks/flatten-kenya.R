@@ -60,7 +60,14 @@ shortcut_id <- "T5"
 # If you want to combine multiple workflows or multiple tasks before aggregating, this is the time to do it.
 survey_data <- run_json_parsing(data = jdata)
 
-nothing_here <- flatten_to_task(json_data = jdata) %>% filter_to_question(question_task_id = shortcut_id)
+
+
+# ADD the nothing here questions back in. 
+# Eventually would be good to add this bit back into the flattening script itself, though it could get complicated if multiple answers for a shortcut question, like in Serengeti.
+nothing_here <- flatten_to_task(json_data = jdata) %>% 
+     filter_to_task(task_id = shortcut_id) %>%
+     flatten_shortcut(.) %>% select(classification_id, string) %>% 
+     left_join(survey_data, .)
 
 
 
