@@ -122,7 +122,5 @@ all_data <- full_join(species_votes, howmany_votes) %>% full_join(., behaviors_v
 #
 
 
-
-
 write.csv(final_dat, file = "data/michigan_aggregation.csv")
 write.csv(consensus_data, file = "data/survey_aggregation.csv")

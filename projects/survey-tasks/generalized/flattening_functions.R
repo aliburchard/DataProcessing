@@ -132,12 +132,28 @@ get_multi_choice_Qs <- function(with_choices_data, cols_in, cols_out) {
                     append_values_string(col_out) 
                
                # Spread columns
-               multi_choice_m_flat <- multi_choice_m %>% data.frame %>%
+               midway <- multi_choice_m %>% data.frame %>%
                     select_(., paste0("-", array_ind)) %>% #have to paste these for standard evaluation
                     mutate(., value_present = 1, pre_col = prepend) %>%
-                    unite_(., "out", c("pre_col", col_out)) %>%
-                    spread_(., key = "out", value = "value_present", fill = 0)
+                    unite_(., "out", c("pre_col", col_out)) 
                
+               #holler if any weirdness with duplicate entries in the answers
+               check_duplicate_answers <- midway %>% 
+                    group_by(subject_ids, user_name, classification_id, submission_index, choice, out) %>% 
+                    mutate(dups = n()) %>% 
+                    filter(dups > 1) 
+               check <- check_duplicate_answers %>%
+                    nrow() %>% 
+                    as.numeric()
+               
+               if(check > 0) {
+                    print("These classifications have duplicate answers for given questions; these answers are being removed.")
+                    print(check_duplicate_answers)
+               }
+               
+               multi_choice_m_flat <- midway %>%
+                    distinct(subject_ids, user_name, classification_id, task, total_submissions, submission_index, choice, out, value_present) %>%
+                    spread_(., key = "out", value = "value_present", fill = 0)
                
                # Need to left_join after creation of each new columns because there might be multiple rows per classification, and this could vary.
                combined <- left_join(combined, multi_choice_m_flat)
@@ -148,11 +164,23 @@ get_multi_choice_Qs <- function(with_choices_data, cols_in, cols_out) {
 }
 
 
-## COMBINE ALL THE THINGS - doesn't actually take function arguments. Really,none of these functions *actually* use functions in the right way, but oh well.
-combine_answers <- function() { #also passed as null from previous functions if empty.
+## RUN THE FUNCTIONS AND COMBINE EVERYTHING
+# This doesn't actually take any function arguments besides the dataset. 
+# Should probably rewrite so that this runs the checks for column names in this function and does whatever assigning is necessary.
+# Really,none of these functions *actually* use functions in the right way, but oh well.
+
+run_json_parsing <- function(data) {
+     flattened <- flatten_to_task(json_data = data, survey_task_id = survey_id) #Produces one row per classification. Might be useful when wanting to recombine other, potentially breaking, task types.
+     choices_only <- get_choices(flattened) # grabs all of the choices. Can produce >1 row per classification.
+     single_choice_answers <- get_single_choice_Qs(choices_only, cols_in = single_choice_Qs, cols_out = single_choice_colnames) #cols_out is optional
+     multi_choice_answers <- get_multi_choice_Qs(choices_only, cols_in = multi_choice_Qs, cols_out = multi_choice_colnames) #cols_out is optional
+     
+     # now combine everything
      full_data <- flattened
      if(!is.null(choices_only)) full_data <- left_join(flattened, choices_only)
      if(!is.null(single_choice_answers)) full_data <- left_join(full_data, single_choice_answers)
      if(!is.null(multi_choice_answers))  full_data <- left_join(full_data, multi_choice_answers)
      return(full_data)
+     
+     
 }
