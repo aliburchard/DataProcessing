@@ -1,96 +1,72 @@
 rm(list = ls())
+
 library(tidyjson)
 library(magrittr)
 library(jsonlite)
 library(dplyr)
 library(stringr)
 library(tidyr)
+library(lubridate)
 
-source("functions/quick_functions.R")
-# This projects has both FOLLOW UP QUESTIONS as well as a "check all that apply" formatted subquestion, meaning that the classification data are a bit different 
-# THIS IS BASICALLY THE MOST COMPLEX PROJECT FORMAT.
+source(file = "projects/survey-tasks/generalized/flattening_script.R") 
 
-# jdata_unfiltered <- read.csv(file = "data/michigan-zoomin-classifications.csv", stringsAsFactors = F)
-# check_workflow(jdata_unfiltered) %>% View
-# set_workflow_version <- 463.55
-# jdata <- jdata_unfiltered %>% filter(., workflow_version == set_workflow_version) %>% head(., n = 5000)
-# write.csv(jdata, "projects/sample_data/michigan-sample.csv", row.names = F)
-
-jdata <- read.csv("projects/sample_data/michigan-sample.csv", stringsAsFactors = F)
+############## INTERACTIVE - CLEANING OF CLASSIFICATION DATA AND SPECIFYING FIELDS ###################
 
 
-############### SURVEY TASK
-head(jdata)
-for (i in 15:20) {
-     jdata$annotations[i] %>% prettify %>% print
-}
+# Specify Project
+project_name <- "michigan"
+classifications_file <- "data/michigan-zoomin-classifications.csv"
 
-# preliminary flat - split out question from survey tasks
 
-basic_flat_with_values <- jdata %>% 
-     select(., subject_ids, user_name, classification_id, workflow_version, annotations) %>%
-     as.tbl_json(json.column = "annotations") %>%
-     gather_array(column.name = "task_index") %>% # really important for joining later
-     spread_values(task = jstring("task"), task_label = jstring("task_label"), value = jstring("value")) 
+# Examine data
+jdata <- read.csv(classifications_file, stringsAsFactors = F)
 
-View(basic_flat_with_values)
+# Set project-specific details
+check_workflow(jdata) %>% View
+workflow_id_num <- 2276
+workflow_version_num <- 463.55
 
-#just have a quick look at the different components
-basic_flat_with_values %>% 
-     gather_keys %>%
-     append_values_string() %>% 
-     group_by(., workflow_version, key, task) %>% 
-     summarise(., n())
+# limit to relevant workflow id and version
+jdata <- jdata %>% filter(., workflow_id == workflow_id_num, workflow_version == workflow_version_num)
 
-#--------------------------------------------------------------------------------#
-# split into survey vs. non-survey data frames. Question is flattened and can be exported as a separate file now.
-survey <- basic_flat_with_values %>% filter(., task == "T3")
-question <- basic_flat_with_values %>% filter(., task == "T2") 
+# Identify task-specific details. These variable names are important, because I haven't figured out how to define them in the function call 
+# (there's some weird referencing. I don't know. The function definitions and scripts could be improved, but things seem to generally work.)
+View_json(jdata)
+survey_id <- c("T3")
+single_choice_Qs <-  c("HOWMANYANIMALSDOYOUSEE")
+single_choice_colnames  <-  c("how_many")
+multi_choice_Qs <- c("WHATISTHEANIMALSDOING")
+multi_choice_colnames <- c("behavior")
 
-###----------------------------### SURVEY FLATTENING ###----------------------------### 
 
-# grab choices; append embedded array values just for tracking
-with_choices <- survey %>%
-     enter_object("value") %>% json_lengths(column.name = "total_species") %>% 
-     gather_array(column.name = "species_index") %>% #each classification is an array. so you need to gather up multiple arrays.
-     spread_values(choice = jstring("choice")) 
+# Flatten by calling the code from the flattening_functions file. This isn't the cleanest approach, but it'll have to do.
+# If you want to combine multiple workflows or multiple tasks before aggregating, this is the time to do it.
+final_data <- run_json_parsing(data = jdata)
 
-# if there are multiple species ID'd, there will be multiple rows and array.index will be >1
-with_choices %>% View
-with_choices %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id))
-with_choices %>% group_by(., classification_id) %>% summarise(., count = n(), max(species_index)) %>% arrange(., -count)
+View(final_data)
+write.csv(final_data, file = paste0(classifications_file, "-flattened.csv"), row.names = F)
 
-# grab answers - for some reason, this keeps rows even if there are no answers! 
-# Note that this last bit is the part that would need to be customized per team, I think
 
-with_answers <- with_choices %>% 
-     enter_object("answers") %>% 
-     spread_values(how_many = jstring("HOWMANYANIMALSDOYOUSEE")) %>%
-     enter_object("WHATISTHEANIMALSDOING") %>% #enter into the list of behaviors
-     gather_array("behavior_index") %>% #gather into one behavior per row
-     append_values_string("behavior") 
+### The Data out will be in the following format: 
+# Metadata
+# Species (Choice)
+# single choice questions
+# multiple choice questions, with the colnames prepended to the values
 
-# spread answers (into separate columns): have to drop behavior index or else the rows won't combine!
-with_answers_spread <- with_answers %>% data.frame %>% 
-     select(., -behavior_index) %>%
-     mutate(., behavior_present = 1) %>%
-     spread(., key = behavior, value = behavior_present, fill = 0)
-
-with_answers %>% View
-with_answers_spread %>% View
-with_answers_spread %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id))
-
-# the number of rows where count >1 should be the same as the difference between the row count for add_counces and basic_flat
-with_answers %>% group_by(classification_id) %>% summarise(., count = n()) %>% arrange(., -count) %>% View   
-
-# in theory, you want to tie all of these back together just in case there are missing values
-add_choices <- left_join(survey, with_choices)
-tot <- left_join(add_choices, with_answers_spread)
-flat_data <- tot %>% select(., -task_index, -task_label, -value)
-
-#check that the number of distinct subject IDs and classification IDs is still the same
-flat_data %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #flattened,
-jdata %>% summarise(., n_distinct(subject_ids), n_distinct(classification_id), n()) #original
-
-write.csv(flat_data, file = "projects/sample_data/michigan-flattened.csv", row.names = F)
-
+# subject_ids: unique Zooniverse subject identifier. you will need to link this back to your primary key via subject metadata.
+# user_name: registered user name or "not-logged-in-hash" where hash is the user's hashed IP address
+# classification_id: a unique key representing that classification. This will be unique to the user and subject, but can encompass multiple tasks
+# workflow_version: the major and minor version of the workflow
+# task_index: an index of tasks. Usually will be 1 if this is your only task.
+# task: the task identifier, e.g. "T0"
+# task_label: <NA> for survey tasks, but for follow-up questions, this would be the text of the question itself
+# value: the annotation data in an embedded list (that is saved as a character). This is really just for double checking against.
+# total_submissions: The total number of submissions a user made for a give species/choice. So, if they said lion, 1, standing and leopard, 1, standing, this = 2.
+# submission_index: Reflects the index of the particular choice. Not really important.
+# choice: Your species choice. NOTE that if you have multiple workflow versions and change species names, you'll need to reconcile these.
+# how_many: note that this is not actually a NUMBER, and be careful that you don't treat it as one, especially if you have ranges like 3-5 that get saved as 35.
+# behavior_EATING: Every possible answer for a "select all that apply" question gets it's own column, so that you can calculate the proportion of users who marked them present.
+# behavior_INTERACTING
+# behavior_MOVING
+# behavior_RESTING
+# behavior_STANDING

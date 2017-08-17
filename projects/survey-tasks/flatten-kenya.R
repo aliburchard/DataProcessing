@@ -64,10 +64,11 @@ survey_data <- run_json_parsing(data = jdata)
 
 # ADD the nothing here questions back in. 
 # Eventually would be good to add this bit back into the flattening script itself, though it could get complicated if multiple answers for a shortcut question, like in Serengeti.
-nothing_here <- flatten_to_task(json_data = jdata) %>% 
+final_data <- flatten_to_task(json_data = jdata) %>% 
      filter_to_task(task_id = shortcut_id) %>%
      flatten_shortcut(.) %>% select(classification_id, string) %>% 
-     left_join(survey_data, .)
+     left_join(survey_data, .) %>%
+     rename(empty = string)
 
 
 

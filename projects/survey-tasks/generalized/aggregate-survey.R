@@ -1,9 +1,12 @@
+# THIS CODE SHOULD WORK on most projects, but will need tweaking. It is not as standalone as the flattening_wrapper
+
+
 rm(list = ls())
 library(dplyr)
 library(magrittr)
 library(stringr)
 library(tidyr)
-source("projects/in-development/aggregate_functions.R")
+source("projects/survey-tasks/aggregate_functions.R")
 
 raw_data <- read.csv("data/michigan-zoomin-classifications.csv-flattened.csv")
 # note that the total_species count reported here isn't accurate when users report the same species multiple times. 
@@ -19,8 +22,8 @@ raw_data %>% View
 
 #Need to Identify behavior columns, how many columns, etc. Let's get data input out of the way now.
 howmany_column <- "how_many" # this is a special kind of single-answer column. 
-single_answer_cols <- NULL # no single-answer columns here, other than how many, which gets special treatment.
 multi_answer_cols <- names(select(ungroup(raw_data), starts_with("behavior"))) #the flattening script handily appends this to the front of behavior columns.
+yesno_columns <- NULL # no single-answer columns here, other than how many, which gets special treatment.
 
 
 # NOTE THAT YOU NEED TO PROVIDE THE MAPPING LATER ON IF YOU USE A HOW MANY COLUMN. I CAN'T SEEM TO GET THE FUNCTION TO ACCEPT VARIABLES. 
@@ -80,8 +83,7 @@ species_counts <- cleaned_classifications %>% ungroup %>%
      group_by(subject_ids, classification_id) %>%
      summarise(total_spp_by_user = mean(num_species)) %>% #Need to select only one row per classification_id, then summarise across those. 
      summarise(., agg_num_species = round(median(total_spp_by_user), 0))#aggregate species count, which is median rounded up
-     
-glimpse(species_counts)
+     glimpse(species_counts)
 
 cleaned_classifications <- left_join(subject_metrics, species_counts) %>% ungroup
 glimpse(cleaned_classifications)
@@ -106,17 +108,14 @@ species_votes <- grouped_classifications %>%
      summarise(., votes = n_distinct(classification_id)) %>% #count up the number of votes per species choice
      mutate(propvote = votes/sum(votes), #calculate proportion of votes for this species
             propclass = votes/num_class) #calculate proportion of classifications for this species
-     
-# Tally votes for the different behaviors (or other multi-choice feature) for each species. 
-multi_answer_votes <- grouped_classifications %>% 
-     summarise_at(., .cols = multi_answer_cols, funs(calc_prop))
 
-# 
-# # Tally votes for factor questions with single answers
-# yes_no_votes <- grouped_classifications %>% 
+# # Tally votes for factor questions with single YES OR NO answers. STILL NEED to create a function to calculate proportions for different answer types.
+# question_votes <- grouped_classifications %>% 
 #      summarise_at(., .cols = yesno_columns, funs(calc_yes))
-# 
 
+# Tally votes for the different behaviors (or other multi-choice feature) for each species.
+multi_answer_votes <- grouped_classifications %>%
+     summarise_at(., .cols = multi_answer_cols, funs(calc_prop))
 
 howmany_votes <- grouped_classifications %>%
      mutate(how_many = dplyr::recode(as.character(how_many), '1' = '1', '2' = '2', '35' = '4', '610' = '8', 'MANY' = '20')) %>%
@@ -125,6 +124,5 @@ howmany_votes <- grouped_classifications %>%
 
 # Okay, so the full dataset has all of the aggregate votes per species. The only thing left is to select the top n species for each subject.
 all_data <- full_join(species_votes, howmany_votes) %>% full_join(., multi_answer_votes)
-
 
 write.csv(final_dat, file = "data/michigan_aggregation.csv")
