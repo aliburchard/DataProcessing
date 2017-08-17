@@ -39,23 +39,36 @@ View_json <- function(jdata) {
 # FLATTEN TO TASK
 # Highest order flattening to extract relevant tasks *within* a classification.
 
-flatten_to_task <- function(json_data, survey_task_id = NA) {
+
+flatten_to_task <- function(json_data) {
      flat_to_task <- json_data %>% 
           select(., subject_ids, user_name, classification_id, workflow_version, annotations) %>%
           as.tbl_json(json.column = "annotations") %>%
           gather_array(column.name = "task_index") %>% # really important for joining later
           spread_values(task = jstring("task"), task_label = jstring("task_label"), value = jstring("value"))
-     
-     #If the task needs filtering, do it here.
-     if (!is.na(survey_task_id)) {
+     return(flat_to_task)
+}  
+
+filter_to_task <- function(flat_to_task, task_id = NA) {
+     if (!is.na(task_id)) {
           # For some unknown reason, updating dplyr breaks how filter handles json objects. Hence the super base R filtering.
-          out <- flat_to_task[flat_to_task$task == survey_task_id, ]     
+          out <- flat_to_task[flat_to_task$task == task_id, ]     
      } else {
           out <- flat_to_task
      }
-     
      return(out)
 }
+
+filter_to_question <- function(flat_to_task, question_task_id = NA) {
+     if (!is.na(question_task_id)) {
+          # For some unknown reason, updating dplyr breaks how filter handles json objects. Hence the super base R filtering.
+          out <- flat_to_task[flat_to_task$task == question_task_id, ]     
+     } else {
+          out <- flat_to_task
+     }
+     return(out)
+}
+
 
 
 # GRAB CHOICES
@@ -182,12 +195,23 @@ run_json_parsing <- function(data) {
      } 
      
      if(!exists("multi_choice_Qs")) print("You have not specified any multi choice questions")
-     if(!exists("multi_choice_colnames")) {
-          if(exists("multi_choice_Qs")) 
-               multi_choice_colnames <- multi_choice_Qs
-     } 
      
-     flattened <- flatten_to_task(json_data = data, survey_task_id = survey_id) #Produces one row per classification. Might be useful when wanting to recombine other, potentially breaking, task types.
+     if(exists("multi_choice_Qs")) {
+          if(!exists("multi_choice_colnames")) 
+               multi_choice_colnames <- multi_choice_Qs
+          if(exists("multi_choice_colnames")) {
+               if(length(multi_choice_colnames) != length(multi_choice_Qs)) {
+                    stop("Your multi-choice columns out do not equal the columns in")
+                    geterrmessage()
+               }
+          }
+     }
+     
+     
+     
+     
+     #Produces one row per classification. Might be useful when wanting to recombine other, potentially breaking, task types.
+     flattened <- flatten_to_task(json_data = data) %>% filter_to_task(task_id = survey_id)
      choices_only <- get_choices(flattened) # grabs all of the choices. Can produce >1 row per classification.
      single_choice_answers <- get_single_choice_Qs(choices_only, cols_in = single_choice_Qs, cols_out = single_choice_colnames) #cols_out is optional
      multi_choice_answers <- get_multi_choice_Qs(choices_only, cols_in = multi_choice_Qs, cols_out = multi_choice_colnames) #cols_out is optional
