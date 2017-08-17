@@ -28,8 +28,8 @@ source(file = "projects/survey-tasks/generalized/flattening_script.R")
 
 
 # Specify Project
-project_name <- "michigan"
-classifications_file <- "data/michigan-zoomin-classifications.csv"
+project_name <- "elephant"
+classifications_file <- "data/elephant-expedition-classifications.csv"
 
 
 # Examine data
@@ -37,8 +37,8 @@ jdata <- read.csv(classifications_file, stringsAsFactors = F)
 
 # Set project-specific details
 check_workflow(jdata) %>% View
-workflow_id_num <- 2276
-workflow_version_num <- 463.55
+workflow_id_num <- 
+workflow_version_num <- 
 
 # Identify task-specific details. These variable names are important, because I haven't figured out how to define them in the function call 
 # (there's some weird referencing. I don't know. The function definitions and scripts could be improved, but things seem to generally work.)

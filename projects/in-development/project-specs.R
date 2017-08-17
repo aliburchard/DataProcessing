@@ -19,13 +19,13 @@
 # multi_choice_colnames <- c("behavior")
 #      
 
-# Colorado Corridors
-project_name <- "colorado-corridors"
-classifications_file <- "data/colorado-corridors-project-classifications.csv"
-survey_id <- c("T0")
-workflow_id_num <- 1187
-workflow_version_num <- 1158.155
-single_choice_Qs <- c("HOWMANYANIMALSDOYOUSEE")
+# # Colorado Corridors
+# project_name <- "colorado-corridors"
+# classifications_file <- "data/colorado-corridors-project-classifications.csv"
+# survey_id <- c("T0")
+# workflow_id_num <- 1187
+# workflow_version_num <- 1158.155
+# single_choice_Qs <- c("HOWMANYANIMALSDOYOUSEE")
 
 
 # # Camera Catalogue
@@ -36,4 +36,6 @@ single_choice_Qs <- c("HOWMANYANIMALSDOYOUSEE")
 # workflow_version_num <- 325.7
 # single_choice_Qs <- "WHCHSDFTHNMLSVSBL"
 # single_choice_colnames <- "which_side"
+
+# Chicago
 
