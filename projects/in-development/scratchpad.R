@@ -32,3 +32,9 @@ do.call(what = recode, args = list(as.character(grouped_classifications), lookup
 x
 
 do.call("dplyr::recode", c(list(x), setNames(as.list(values), names)))
+
+
+
+x <- read.csv("projects/sample_data/camcat_sa.csv")
+x %<>% head(1000)
+write.csv(x, "projects/sample_data/camcat_sa.csv", row.names = F)
