@@ -29,12 +29,11 @@ test <- grouped_classifications$how_many %>% head(n=100) %>% as.character
 x <- grouped_classifications %>% mutate(how2 = dplyr::recode(as.character(how_many), "1" = 1L, "2" = 2L, "35" = 4L, "610" = 8L, "MANY" = 20L))
 do.call(what = recode, args = list(as.character(grouped_classifications), lookup))
 
-x
 
 do.call("dplyr::recode", c(list(x), setNames(as.list(values), names)))
 
 
-
-x <- read.csv("projects/sample_data/camcat_sa.csv")
-x %<>% head(1000)
-write.csv(x, "projects/sample_data/camcat_sa.csv", row.names = F)
+w <- read.csv("data/head_kenya.csv", stringsAsFactors = F)
+x <- w %>% filter(workflow_version != 126.73) %>% head(n=2000)
+write.csv(x, "data/kenya-sample.csv", row.names = F)
+check_workflow(w)
